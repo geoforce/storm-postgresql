@@ -12,6 +12,8 @@ public class PostgresqlStateConfig implements Serializable {
 	private StateType type = StateType.OPAQUE;
 	private String[] keyColumns;
 	private String[] valueColumns;
+	private String[] valueTypes;
+	private String[] keyTypes;
 	private int batchSize = DEFAULT_BATCH_SIZE;
 	private int cacheSize = DEFAULT_CACHE_SIZE;
 
@@ -74,4 +76,19 @@ public class PostgresqlStateConfig implements Serializable {
 		this.batchSize = batchSize;
 	}
 
+	public String[] getValueTypes() {
+	    return valueTypes;
+	}
+
+	public void setValueTypes(String[] valueTypes) {
+	    this.valueTypes = valueTypes;
+	}
+
+	public String[] getKeyTypes() {
+		return keyTypes;
+	}
+
+	public void setKeyTypes(String[] keyTypes) {
+		this.keyTypes = keyTypes;
+	}
 }

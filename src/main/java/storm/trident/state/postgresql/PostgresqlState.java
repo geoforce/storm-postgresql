@@ -27,6 +27,7 @@ import storm.trident.state.map.NonTransactionalMap;
 import storm.trident.state.map.OpaqueMap;
 import storm.trident.state.map.TransactionalMap;
 import backtype.storm.task.IMetricsContext;
+import backtype.storm.topology.FailedException;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -136,7 +137,7 @@ public class PostgresqlState<T> implements IBackingMap<T> {
           .append(buildColumns())
           .append(") AS (")
             .append("VALUES ")
-            .append(Joiner.on(", ").join(repeat("(" + Joiner.on(",").join(repeat("?", paramCount)) + ")", pkeys.size())))
+            .append(Joiner.on(", ").join(repeat("(" + buildValueParams() + ")", pkeys.size())))
           .append("),")
           .append("updated AS (")
             .append("UPDATE ").append(config.getTable()).append(" t ")
@@ -198,6 +199,7 @@ public class PostgresqlState<T> implements IBackingMap<T> {
         ps.execute();
       } catch (final SQLException ex) {
         logger.error("Multiput update failed", ex);
+        throw new FailedException(ex);
       } finally {
         if (ps != null) {
           try {
@@ -215,6 +217,16 @@ public class PostgresqlState<T> implements IBackingMap<T> {
     final List<String> cols = Lists.newArrayList(config.getKeyColumns()); // the columns for the composite unique key
     cols.addAll(getValueColumns());
     return Joiner.on(",").join(cols);
+  }
+
+  private String buildValueParams() {
+    final List<String> types = Lists.newArrayList(config.getKeyTypes()); // the columns for the composite unique key
+    types.addAll(getValueTypes());
+    List<String> withCast = new ArrayList<>();
+    for(String type : types) {
+      withCast.add(String.format("?::%s", type));
+    }
+    return Joiner.on(",").join(withCast);
   }
 
   private String buildKeyQuery(final int n) {
@@ -239,6 +251,17 @@ public class PostgresqlState<T> implements IBackingMap<T> {
           return "prev_" + field;
         }
       })); // the prev_* columns
+    }
+    return cols;
+  }
+
+  private List<String> getValueTypes() {
+    final List<String> cols = Lists.newArrayList(config.getValueTypes()); // the columns storing the values
+    if (StateType.OPAQUE.equals(config.getType()) || StateType.TRANSACTIONAL.equals(config.getType())) {
+      cols.add("bigint");
+    }
+    if (StateType.OPAQUE.equals(config.getType())) {
+      cols.addAll(Lists.newArrayList(config.getValueTypes()));
     }
     return cols;
   }
